@@ -19,8 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="readFstreamThread_Crit.cpp" />
-    <ClCompile Include="readFstreamThread_Mutex.cpp" />
+    <ClCompile Include="readFstreamStdThread_mutex.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
