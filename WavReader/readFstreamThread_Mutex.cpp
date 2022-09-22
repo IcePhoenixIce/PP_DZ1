@@ -3,13 +3,14 @@
 #include <vector>
 #include<Windows.h>
 #include<cstdio>
+#include<string>
 
 using namespace std;
 
 const int X = 514 + 22;
 const int N = 4 + (X % 5);
-int global_res1 = 0;
-int global_res2 = 0;
+long global_res1 = 0;
+long global_res2 = 0;
 int global_size = 0;
 int16_t num;
 
@@ -35,37 +36,35 @@ struct task
 	int number;
 };
 
-int16_t *massiv;
+int16_t* massiv;
 
 HANDLE th[N];
+HANDLE mutex;
 DWORD tid[N];
 task t[N];
-CRITICAL_SECTION cs;
+
+
 
 DWORD __stdcall f(void* arg)
 {
 
 	task* t = (task*)arg;
 
-	int res1 = 0, res2 = 0;
+	long res1 = 0, res2 = 0;
 	for (int i = t->from; i < t->to; i++)
 	{
 		if (abs(massiv[i]) > num) res1++;
 		else res2++;
 	}
-
-	EnterCriticalSection(&cs);
-		global_res1 += res1;
-		global_res2 += res2;
-	LeaveCriticalSection(&cs);
-
+	WaitForSingleObject(mutex, INFINITY);
+	global_res1 += res1;
+	global_res2 += res2;
+	ReleaseMutex(mutex);
 	return 0;
 }
 
-int main() 
+int main()
 {
-	InitializeCriticalSection(&cs);
-
 	num = 16000;
 	string patch = "C:\\Users\\SF\\Downloads\\file_example_WAV_10MG.wav";
 	header hd;
@@ -76,21 +75,20 @@ int main()
 	//cout << "Введите путь файла: ";
 	//cin >> patch;
 	ifstream inwav(patch, ios::binary);
-	if (inwav.is_open()) 
+	if (inwav.is_open())
 	{
 		//Проверка на отсчет в 16 бит
-		inwav.read((char*) &hd, sizeof(header));
-		if (hd.bitsPerSample != 16) 
+		inwav.read((char*)&hd, sizeof(header));
+		if (hd.bitsPerSample != 16)
 		{
 			cout << "Отсчет не равен 16 битам!";
-			DeleteCriticalSection(&cs);
 			return 1;
 		}
 
 		//Поиск чанка "data"
 		char subchunk2Id[5];
 		subchunk2Id[4] = '\0';
-		do 
+		do
 		{
 			inwav.read((char*)&subchunk2Id, 4 * sizeof(char));
 		} while (string(subchunk2Id) != "data");
@@ -104,17 +102,18 @@ int main()
 		//Создание и инициализация вектора данных
 
 		massiv = new int16_t[global_size];
-		inwav.read(reinterpret_cast<char*>(massiv), global_size*sizeof(int16_t));
-		
+		inwav.read(reinterpret_cast<char*>(massiv), global_size * sizeof(int16_t));
+
 		//Данные о варианте
 
 		cout << "Группа: 514\n"
 			<< "Номер в списке : 22\n"
 			<< "Способ распараллеливаия: " << X % 4 << endl
 			<< "Количество потоков: " << N << endl << endl;
-		
+
 		//Работа с вектором данных
 		//Тут параллелим
+		mutex = CreateMutex(NULL, FALSE, (LPCWSTR)"CritMutex");
 		for (int i = 0; i < N; i++)
 		{
 			t[i].from = i * global_size / N;
@@ -123,15 +122,16 @@ int main()
 			th[i] = CreateThread(NULL, 0, f, (void*)&t[i], 0, &tid[i]);
 		}
 		WaitForMultipleObjects(N, th, true, INFINITE);
+
 		//Конец параллели
+		CloseHandle(mutex);
 		for (int i = 0; i < N; i++)
 			CloseHandle(th[i]);
 		//все закрываем и чистим
 		inwav.close();
 		delete[] massiv;
 		cout << "|a|>" << num << " : " << global_res1 << endl
-			 << "|a|<=" << num << " : " << global_res2;
+			<< "|a|<=" << num << " : " << global_res2;
 	}
-
-	DeleteCriticalSection(&cs);
+	return 0;
 }

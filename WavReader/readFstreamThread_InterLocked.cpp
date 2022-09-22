@@ -8,8 +8,8 @@ using namespace std;
 
 const int X = 514 + 22;
 const int N = 4 + (X % 5);
-int global_res1 = 0;
-int global_res2 = 0;
+long global_res1 = 0;
+long global_res2 = 0;
 int global_size = 0;
 int16_t num;
 
@@ -40,32 +40,26 @@ int16_t *massiv;
 HANDLE th[N];
 DWORD tid[N];
 task t[N];
-CRITICAL_SECTION cs;
 
 DWORD __stdcall f(void* arg)
 {
 
 	task* t = (task*)arg;
 
-	int res1 = 0, res2 = 0;
+	long res1 = 0, res2 = 0;
 	for (int i = t->from; i < t->to; i++)
 	{
 		if (abs(massiv[i]) > num) res1++;
 		else res2++;
 	}
-
-	EnterCriticalSection(&cs);
-		global_res1 += res1;
-		global_res2 += res2;
-	LeaveCriticalSection(&cs);
+	InterlockedAdd(&global_res1, res1);
+	InterlockedAdd(&global_res2, res2);
 
 	return 0;
 }
 
 int main() 
 {
-	InitializeCriticalSection(&cs);
-
 	num = 16000;
 	string patch = "C:\\Users\\SF\\Downloads\\file_example_WAV_10MG.wav";
 	header hd;
@@ -83,7 +77,6 @@ int main()
 		if (hd.bitsPerSample != 16) 
 		{
 			cout << "Отсчет не равен 16 битам!";
-			DeleteCriticalSection(&cs);
 			return 1;
 		}
 
@@ -132,6 +125,5 @@ int main()
 		cout << "|a|>" << num << " : " << global_res1 << endl
 			 << "|a|<=" << num << " : " << global_res2;
 	}
-
-	DeleteCriticalSection(&cs);
+	return 0;
 }
